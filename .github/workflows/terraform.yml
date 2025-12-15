@@ -14,6 +14,8 @@ jobs:
 
     env:
       AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: 301782007642
+      ECR_REPOSITORY: strapi
 
     steps:
       - name: Checkout repository
@@ -26,6 +28,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get ECR login token
+        id: ecr-token
+        run: |
+          echo "token=$(aws ecr get-login-password --region $AWS_REGION)" >> $GITHUB_OUTPUT
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -35,8 +42,14 @@ jobs:
 
       - name: Terraform Plan
         working-directory: task_5/terraform
-        run: terraform plan -var="image_tag=${{ github.event.inputs.image_tag }}"
+        run: |
+          terraform plan \
+            -var="image_tag=${{ github.event.inputs.image_tag }}" \
+            -var="ecr_token=${{ steps.ecr-token.outputs.token }}"
 
       - name: Terraform Apply
         working-directory: task_5/terraform
-        run: terraform apply -auto-approve -var="image_tag=${{ github.event.inputs.image_tag }}"
+        run: |
+          terraform apply -auto-approve \
+            -var="image_tag=${{ github.event.inputs.image_tag }}" \
+            -var="ecr_token=${{ steps.ecr-token.outputs.token }}"
